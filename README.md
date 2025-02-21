@@ -1,6 +1,6 @@
 # Edge-AI
 
-2025 Spring NYCU Kai-Chiang Wu 
+2025 Spring NYCU, Kai-Chiang Wu 
 
 | Lab |               Name                  |        
 | :---     |                                 ---:|
