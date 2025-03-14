@@ -5,3 +5,4 @@
 | Lab |               Name                  |        
 | :---     |                                 ---:|
 | Lab0     | Run Vision Model & SLM on GPU | 
+| Lab1     | Prune Vision Model |
