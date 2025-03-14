@@ -1,3 +1,5 @@
+> [!CAUTION]
+> Don't copy my work or you will be caught for plagiarism 🙅‍♂️⛔️
 # Edge-AI
 
 2025 Spring NYCU, Kai-Chiang Wu 
