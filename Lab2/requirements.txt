@@ -1,0 +1,8 @@
+huggingface-hub[cli]
+transformers
+torch torchvision torchaudio
+timm
+datasets
+accelerate
+gemlite
+hqq
