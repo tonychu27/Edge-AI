@@ -41,7 +41,9 @@ def main():
     acc_after_quant = evaluate_model(model, test_loader, 'cuda:0')
     print(f'Accuracy After Quant: {acc_after_quant}%')
     print(f'Model Size (MiB) {get_size_of_model(model)/ (1024 ** 2)} MiB')
-    print(f'Your Score: {20 - max(90 - acc_after_quant, 0) * 10 + 17 - (get_size_of_model(model) / (1024 ** 2))}')
+    
+    score = 20 - max(0, 90 - acc_after_quant) * 10 + (17 - get_size_of_model(model) / (1024 ** 2))
+    print(f'Score: {score}')
 
     
 if __name__ == '__main__':

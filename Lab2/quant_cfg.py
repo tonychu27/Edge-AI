@@ -26,19 +26,18 @@ def get_quant_config_slm(model):
     quant_config = {}
     
     n_layers = model.config.num_hidden_layers
-    q_config_attn = BaseQuantizeConfig(nbits=8, group_size=64)
-    q_config_mlp = BaseQuantizeConfig(nbits=4, group_size=128)
+
+    q4_g64 = BaseQuantizeConfig(nbits=4, group_size=64)
+    q8_g256 = BaseQuantizeConfig(nbits=8, group_size=256)
 
     for i in range(n_layers):
-        # Attention projections
-        quant_config[f'model.layers.{i}.self_attn.q_proj'] = q_config_attn
-        quant_config[f'model.layers.{i}.self_attn.k_proj'] = q_config_attn
-        quant_config[f'model.layers.{i}.self_attn.v_proj'] = q_config_attn
-        quant_config[f'model.layers.{i}.self_attn.o_proj'] = q_config_attn
-
-        # MLP projections
-        quant_config[f'model.layers.{i}.mlp.gate_proj'] = q_config_mlp
-        quant_config[f'model.layers.{i}.mlp.up_proj'] = q_config_mlp
-        quant_config[f'model.layers.{i}.mlp.down_proj'] = q_config_mlp
+        quant_config[f'model.layers.{i}.self_attn.q_proj'] = q8_g256
+        quant_config[f'model.layers.{i}.self_attn.k_proj'] = q8_g256
+        quant_config[f'model.layers.{i}.self_attn.v_proj'] = q8_g256
+        quant_config[f'model.layers.{i}.self_attn.o_proj'] = q8_g256
+        
+        quant_config[f'model.layers.{i}.mlp.gate_proj'] = q4_g64
+        quant_config[f'model.layers.{i}.mlp.up_proj'] = q4_g64
+        quant_config[f'model.layers.{i}.mlp.down_proj'] = q8_g256
         
     return quant_config
