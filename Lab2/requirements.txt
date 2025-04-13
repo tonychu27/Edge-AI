@@ -1,6 +1,8 @@
 huggingface-hub[cli]
 transformers
-torch torchvision torchaudio
+torch
+torchvision
+torchaudio
 timm
 datasets
 accelerate
