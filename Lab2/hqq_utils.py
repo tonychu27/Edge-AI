@@ -35,7 +35,7 @@ def get_size_of_model(model):
             size_in_bytes += module.meta['scale'].numel() * module.meta['scale'].element_size()
             size_in_bytes += module.meta['zero'].numel() * module.meta['zero'].element_size()
             
-            if hasattr(module, 'bias'):
+            if isinstance(getattr(module, 'bias'), torch.Tensor):
                 size_in_bytes += module.bias.numel() * module.bias.element_size()
             
         elif is_leaf_module(module):
