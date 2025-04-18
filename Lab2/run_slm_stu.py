@@ -130,7 +130,7 @@ def main():
         past_key_values.reset()
         
     prompt = "How to learn a new language?"
-    input_ids = tokenizer(prompt, return_tensors='pt').input_ids.to(device)
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
     tputs = []
     for _ in tqdm(range(10), desc="Test Inference"):
         generated, tput = generate(model, input_ids, past_key_values, max_new_tokens, activate_timing=True, verbose=False)
@@ -159,7 +159,6 @@ def main():
 
     prompt = "How to learn a new language?"
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(model.device)
-    
     tputs = []
     for _ in tqdm(range(10), desc="Test Inference"):
         generated, tput = generate(model, input_ids, past_key_values, max_new_tokens, activate_timing=True, verbose=False)
