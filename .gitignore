@@ -1,4 +1,5 @@
 .*
 !.gitignore
 data
+Slides
 __pycache__
