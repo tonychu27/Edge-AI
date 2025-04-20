@@ -6,6 +6,6 @@
 
 | Lab |               Name                  |        
 | :---     |                                 :---|
-| Lab0     | Run Vision Model & SLM on GPU | 
-| Lab1     | Prune Vision Model |
-| Lab2     | Model Quantization |
+| Lab0     | [Run Vision Model & SLM on GPU](https://hackmd.io/@ccyangus/ByCbNoitJg) | 
+| Lab1     | [Prune Vision Model](https://hackmd.io/@ccyangus/S1vhEooKkg) |
+| Lab2     | [Model Quantization](https://hackmd.io/@ccyangus/BJE4BsjtJe) |
