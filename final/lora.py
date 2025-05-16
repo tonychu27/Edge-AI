@@ -1,4 +1,6 @@
 import torch
+import os
+
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer, DataCollatorForLanguageModeling
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, TaskType
@@ -6,7 +8,14 @@ from peft import LoraConfig, get_peft_model, TaskType
 from huggingface_hub import HfApi
 from huggingface_hub.utils import HfHubHTTPError
 
-model_path = "../Model/Llama-3B-pruned"
+import argparse
+
+argparser = argparse.ArgumentParser()
+argparser.add_argument("--epoch", type=int, required=True)
+argparser.add_argument("--model_id", type=str, required=True)
+args = argparser.parse_args()
+
+model_path = f"../Model/{args.model_id}"
 
 model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, device_map="cuda")
 tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -37,7 +46,7 @@ training_args = TrainingArguments(
     output_dir="./lora_llama3b_out",
     per_device_train_batch_size=4,
     gradient_accumulation_steps=2,
-    num_train_epochs=10,
+    num_train_epochs=args.epoch,
     learning_rate=2e-4,
     fp16=True,
     logging_steps=10,
@@ -59,11 +68,16 @@ trainer = Trainer(
 
 trainer.train()
 
-save_path = "../Model/Llama-3B-pruned-LoRA"
+save_path = f"../Model/{args.model_id}-LoRA-epoch-{args.epoch}"
 model.save_pretrained(save_path)
 tokenizer.save_pretrained(save_path)
 
-hf_path = "Tony027/Llama-3B-pruned-LoRA"
+readme_path = os.path.join(save_path, "README.md")
+if os.path.exists(readme_path):
+    os.remove(readme_path)
+    print("Removed README.md to avoid YAML validation error.")
+
+hf_path = f"Tony027/{args.model_id}-LoRA-epoch-f{args.epoch}"
 
 api = HfApi()
 try:

@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import os
+
 from transformers import AutoTokenizer, AutoModelForCausalLM, StaticCache
 from tqdm.auto import tqdm
 from datasets import load_dataset
@@ -100,7 +102,7 @@ def main():
     recommended_inductor_config_setter()
     backend = 'gemlite'
 
-    model_name = "../Model/Llama-3.2-3B"  
+    model_name = "../Model/Llama-3.2-3B-Instruct-pruned-group"  
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         device_map=device,
@@ -236,6 +238,10 @@ def main():
         writer.writerow(["value"])
         writer.writerow([ppl])
         writer.writerow([rounded_tput])
+
+    with open("experiment.csv", mode="a", newline="\n") as file:
+        writer = csv.writer(file)
+        writer.writerow([model_name.split('/')[2], rounded_tput, ppl, os.path.basename(__file__)])
         
 if __name__ == '__main__':
     main()

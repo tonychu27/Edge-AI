@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import os
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm.auto import tqdm
 from datasets import load_dataset
@@ -86,7 +87,7 @@ def main():
     device = 'cuda:0'
     
     ### === TODO: Load your model (you may change this part) ===
-    model_name = "../Model/Llama-3.2-3B-Instruct-pruned"   
+    model_name = "../Model/Llama-3.2-3B"   
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
@@ -184,6 +185,10 @@ def main():
         writer.writerow(["Id", "value"])
         writer.writerow([0, ppl])
         writer.writerow([1, rounded_tput])
+
+    with open("experiment.csv", mode="a", newline="\n") as file:
+        writer = csv.writer(file)
+        writer.writerow([model_name.split('/')[2], rounded_tput, ppl, os.path.basename(__file__)])
         
 if __name__ == '__main__':
     main()

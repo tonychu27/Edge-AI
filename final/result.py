@@ -1,13 +1,26 @@
+import os
+os.environ["PYTORCH_INDuctor_LOG_LEVEL"] = "ERROR"
+os.environ["PYTORCH_DISABLE_TUNE_LOGS"] = "1"
+
+import warnings
+warnings.filterwarnings("ignore")
+
 import torch
 import torch.nn as nn
+from torch.nn.attention import SDPBackend, sdpa_kernel
+
 from transformers import AutoTokenizer, AutoModelForCausalLM
+
 from tqdm.auto import tqdm
 from datasets import load_dataset
+
 import random
 import numpy as np
-from torch.nn.attention import SDPBackend, sdpa_kernel
+
 import model
 from model import LlamaForCausalLM
+
+import argparse
 
 #####################################################################
 # === SPEC NOTICE ===
@@ -83,7 +96,7 @@ def evaluate_ppl(model, tokenizer, device="cuda:0"):
     return ppl.item()
 
 @torch.no_grad()
-def main():
+def main(args):
     ############## Set Up ##############
     torch.manual_seed(0)
     random.seed(0)
@@ -93,14 +106,15 @@ def main():
     
     ### === TODO: Load your model (you may change this part) ===
 
-    model_name = "../Model/Llama-3.2-3B"  
+    model_name = f"../Model/{args.model_id}"  
+    print(f"Loading {args.model_id} ...")
+
     model = LlamaForCausalLM.from_pretrained(
         model_name,
         device_map=device,
         torch_dtype=torch.float16,
         attn_implementation="sdpa"
     )
-    
     
     # compile the model (optional)
     model.prefill_forward = model.forward
@@ -226,6 +240,14 @@ def main():
         writer.writerow(["value"])
         writer.writerow([ppl])
         writer.writerow([rounded_tput])
+
+    with open("experiment.csv", mode="a", newline="\n") as file:
+        writer = csv.writer(file)
+        writer.writerow([model_name.split('/')[2], rounded_tput, ppl, os.path.basename(__file__)])
         
 if __name__ == '__main__':
-    main()
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--model_id", type=str, required=True)
+    args = argparser.parse_args()
+
+    main(args)
