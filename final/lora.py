@@ -77,7 +77,7 @@ if os.path.exists(readme_path):
     os.remove(readme_path)
     print("Removed README.md to avoid YAML validation error.")
 
-hf_path = f"Tony027/{args.model_id}-LoRA-epoch-f{args.epoch}"
+hf_path = f"Tony027/{args.model_id}-LoRA-epoch-{args.epoch}"
 
 api = HfApi()
 try:

@@ -1,6 +1,6 @@
 Model, Throughput, Perplexity, Script
-Llama-3.2-3B-Instruct-pruned-group,201.3,12.23,result_hqq.py
 Llama-3.2-3B-Instruct-pruned-group,119.5,11.96,result.py
 Llama-3.2-3B-Instruct-pruned-group-awq,197.9,12.63,result.py
 Llama-3.2-3B-Instruct-pruned-group-gptq,85.5,12.46,result.py
 Llama-3.2-3B-Instruct-pruned-group,211.6,12.23,result_hqq.py
+Llama-3.2-3B-Instruct-pruned-0.95,124.4,11.97,result.py

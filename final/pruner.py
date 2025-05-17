@@ -126,6 +126,7 @@ class FFNPruner:
 
         old_intermediate_size = config.intermediate_size
         new_intermediate_size = int(old_intermediate_size * (1 - prune_ratio))
+        new_intermediate_size=max(64, round(new_intermediate_size/64)*64)
         config.intermediate_size = new_intermediate_size
         self.logger.info(f"Pruning ratio: {prune_ratio} => intermediate_size {old_intermediate_size} → {new_intermediate_size}")
 
@@ -146,7 +147,7 @@ class FFNPruner:
 
         new_model.load_state_dict(new_model_state_dict)
         new_model.save_pretrained(save_path)
-        # self.tokenizer.save_pretrained(save_path)
+        self.tokenizer.save_pretrained(save_path)
         self.model = new_model.to(self.device)
         self.logger.info(f"✅ Pruned model saved to: {save_path}")
 
@@ -199,7 +200,7 @@ if __name__ == "__main__":
         image_path="ffn_outputs"
     )
 
-    save_path = '../Model/llama-3.2-3B-Instruct-pruned-0.95'
+    save_path = '../Model/Llama-3.2-3B-Instruct-pruned-0.95'
 
     total_params = pruner.calculate_parameters()
     print(f"Total parameters before pruning: {total_params:,}")
@@ -219,7 +220,7 @@ if __name__ == "__main__":
     total_params = pruner.calculate_parameters()
     print(f"Total parameters after pruning: {total_params:,}")
 
-    hf_path = "Tony027/Llama-3B-Instruct-pruned"
+    hf_path = "Tony027/Llama-3.2-3B-Instruct-pruned"
 
     api = HfApi()
     try:

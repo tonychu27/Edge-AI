@@ -1,1 +1,11 @@
 Model, Throughput, Perplexity
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-1,108.7,9.91
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-2,115.0,10.72
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-3,115.1,12.35
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-4,115.2,14.87
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-5,115.1,17.56
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-6,115.1,21.06
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-7,115.1,26.77
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-8,115.1,28.56
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-9,115.2,31.7
+Llama-3.2-3B-Instruct-pruned-0.95-LoRA-epoch-10,115.2,35.61
