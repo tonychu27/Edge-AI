@@ -1,28 +1,44 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import matplotlib.pyplot as plt
 from datasets import load_dataset
 from tqdm import tqdm
 import numpy as np
-import shutil
+import os
 import logging
-
-from huggingface_hub import HfApi
-from huggingface_hub.utils import HfHubHTTPError
+import argparse
+import torch.nn as nn
 
 class FFNPruner:
-    def __init__(self, model_name_or_path="meta-llama/Llama-3.2-3B", image_path="ffn", device=None):
+    def __init__(self, model_name_or_path="meta-llama/Llama-3.2-3B", image_path=None, output_path=None,device=None, use_lora=False):
+        assert model_name_or_path is not None, "model_name_or_path cannot be None"
+        assert image_path is not None, "image_path cannot be None"
+        assert output_path is not None, "output_path cannot be None"
+        
         self.model_name_or_path = model_name_or_path
         self.image_path = image_path
+        self.output_path = output_path
         self.device = device if device else ('cuda' if torch.cuda.is_available() else 'cpu')
-        self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-3B", use_fast=False)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name_or_path, torch_dtype=torch.bfloat16).to(self.device)
+        self.tokenizer = AutoTokenizer.from_pretrained("../Model/Llama-3.2-3B-Instruct", use_fast=False)
+        print("loading model...")
+        # merge the weight if needed
+        if use_lora:
+            import peft
+            from peft import PeftModel, PeftConfig
+            peft_model_id = 'Tony027/Llama-3B-pruned-LoRA'
+            config = PeftConfig.from_pretrained(peft_model_id)
+            base_model = AutoModelForCausalLM.from_pretrained(model_name_or_path, torch_dtype=torch.bfloat16).to(self.device)
+            self.model = PeftModel.from_pretrained(base_model, peft_model_id)
+            self.model = self.model.merge_and_unload()
+        else:
+            self.model = AutoModelForCausalLM.from_pretrained(model_name_or_path, torch_dtype=torch.bfloat16).to(self.device)
+        ###########################################
+        
         self.model.eval()
         self.activations = {}
         self.hooks = []
-        self.logger = self._setup_logger(log_dir=image_path)
+        self.logger = self._setup_logger(log_dir=output_path)
 
     def _setup_logger(self, log_dir):
         os.makedirs(log_dir, exist_ok=True)
@@ -70,7 +86,6 @@ class FFNPruner:
 
         self._remove_hooks()
 
-        os.makedirs(self.image_path, exist_ok=True)
 
         for layer, activation in self.activations.items():
             self.logger.info(f"Processing layer: {layer}")
@@ -118,74 +133,70 @@ class FFNPruner:
         self.model.load_state_dict(new_model_state_dict)
         torch.cuda.empty_cache()
 
-    def prune(self, save_path: str, prune_ratio: float):
+    def prune(self, prune_ratio: float):
         model_state_dict = self.model.state_dict()
         config = self.model.config
-        os.makedirs(save_path, exist_ok=True)
-        self.logger = self._setup_logger(save_path)
+
 
         old_intermediate_size = config.intermediate_size
         new_intermediate_size = int(old_intermediate_size * (1 - prune_ratio))
-        new_intermediate_size=max(64, round(new_intermediate_size/64)*64)
-        config.intermediate_size = new_intermediate_size
-        self.logger.info(f"Pruning ratio: {prune_ratio} => intermediate_size {old_intermediate_size} → {new_intermediate_size}")
-
-        new_model = AutoModelForCausalLM.from_config(config)
-        new_model_state_dict = new_model.state_dict()
-
+        new_intermediate_size = (new_intermediate_size // 128) * 128
+        self.model.config.intermediate_size = new_intermediate_size
+        
+        self.logger.info(f"Pruning ratio: {prune_ratio} => intermediate_size {old_intermediate_size} → {self.model.config.intermediate_size }")
+        new_state_dict = {}
+        
         for name, param in model_state_dict.items():
             if "mlp.gate_proj.weight" in name:
-                new_model_state_dict[name] = param[:new_intermediate_size, :].clone()
+                new_state_dict[name] = param[:new_intermediate_size, :].clone()
             elif "mlp.up_proj.weight" in name:
-                new_model_state_dict[name] = param[:new_intermediate_size, :].clone()
+                new_state_dict[name] = param[:new_intermediate_size, :].clone()
             elif "mlp.down_proj.weight" in name:
-                new_model_state_dict[name] = param[:, :new_intermediate_size].clone()
-            elif name in new_model_state_dict:
-                new_model_state_dict[name] = param.clone()
+                new_state_dict[name] = param[:, :new_intermediate_size].clone()
             else:
-                self.logger.warning(f"⚠️ {name} not in new model state dict")
+                new_state_dict[name] = param.clone()
+            
 
-        new_model.load_state_dict(new_model_state_dict)
-        new_model.save_pretrained(save_path)
-        self.tokenizer.save_pretrained(save_path)
-        self.model = new_model.to(self.device)
-        self.logger.info(f"✅ Pruned model saved to: {save_path}")
+        # 載入 state dict
+        # self.model.load_state_dict(new_model_state_dict, strict=False)
+        torch.save(new_state_dict, os.path.join(args.output_path, "pytorch_model.bin"))
+        self.model.config.save_pretrained(args.output_path)
+        del self.model, new_state_dict
+        self.model = AutoModelForCausalLM.from_pretrained(args.output_path, torch_dtype=torch.bfloat16, device_map="cuda")
+        self.model.save_pretrained(args.output_path)
+        # remove pytorch_model.bin
+        os.remove(os.path.join(args.output_path, "pytorch_model.bin"))
+        self.logger.info(f"✅ Pruned model saved to: {args.output_path}")
+        self.tokenizer.save_pretrained(args.output_path)
 
     def test_perplexity(self, num_samples=100):
-        test = load_dataset("wikitext", "wikitext-2-raw-v1", split=f"test[:{num_samples}]")
-        encodings = self.tokenizer("\n\n".join(test["text"]), return_tensors="pt")
-        self.model.eval()
-
-        max_length = 2048
-        stride = 512
-        seq_len = encodings.input_ids.size(1)
-        nll_sum = 0.0
-        n_tokens = 0
-        prev_end_loc = 0
-        for begin_loc in tqdm(range(0, seq_len, stride), desc="Calculating perplexity"):
-            end_loc = min(begin_loc + max_length, seq_len)
-            trg_len = end_loc - prev_end_loc
-            input_ids = encodings.input_ids[:, begin_loc:end_loc].to(self.device)
-            target_ids = input_ids.clone()
-            target_ids[:, :-trg_len] = -100
-
+        if num_samples == 0:
+            test_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
+        else:
+            test_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split=f"test[:{num_samples}]")
+            
+        test_enc = self.tokenizer("\n\n".join(test_dataset["text"]), return_tensors="pt")
+        self.model.seqlen = 2048
+        test_enc = test_enc.input_ids.to(self.device)
+        
+        nsamples = test_enc.numel() // self.model.seqlen
+        nlls = []  
+        for i in tqdm(range(nsamples), desc="Evaluating..."):
+            batch = test_enc[:, (i * self.model.seqlen):((i + 1) * self.model.seqlen)]
+            
             with torch.no_grad():
-                outputs = self.model(input_ids, labels=target_ids)
-                neg_log_likelihood = outputs.loss
+                lm_logits = self.model(batch).logits
 
-            num_valid_tokens = (target_ids != -100).sum().item()
-            batch_size = target_ids.size(0)
-            num_loss_tokens = num_valid_tokens - batch_size
-            nll_sum += neg_log_likelihood * num_loss_tokens
-            n_tokens += num_loss_tokens
+            shift_logits = lm_logits[:, :-1, :].contiguous().float()
+            shift_labels = test_enc[:, (i * self.model.seqlen):((i + 1) * self.model.seqlen)][:, 1:]
 
-            prev_end_loc = end_loc
-            if end_loc == seq_len:
-                break
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+            neg_log_likelihood = loss.float() * self.model.seqlen
+            nlls.append(neg_log_likelihood)
 
-        avg_nll = nll_sum / n_tokens
-        ppl = torch.exp(avg_nll)
-        self.logger.info(f"Perplexity: {ppl.item():.2f}")
+        ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * self.model.seqlen))
+        
         return ppl.item()
 
     def calculate_parameters(self):
@@ -195,46 +206,33 @@ class FFNPruner:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name_or_path', default='meta-llama/Llama-3.2-3B', help='model name or path')
+    parser.add_argument('--image_path', default='ffn_outputs', help='path to save images')
+    parser.add_argument('--output_path', default='./Llama-3.2-3B-pruned-0.55', help='path to save pruned model')
+    args = parser.parse_args()
     pruner = FFNPruner(
-        model_name_or_path='../Model/Llama-3.2-3B-Instruct',
-        image_path="ffn_outputs"
+        model_name_or_path = args.model_name_or_path,
+        image_path = os.path.join(args.output_path, args.image_path),
+        output_path = args.output_path,
+        device = 'cuda',
+        use_lora = False
     )
-
-    save_path = '../Model/Llama-3.2-3B-Instruct-pruned-0.95'
-
-    total_params = pruner.calculate_parameters()
-    print(f"Total parameters before pruning: {total_params:,}")
+    print("Making directory:", pruner.output_path)
+    # make directory
+    os.makedirs(pruner.output_path, exist_ok=True)
+    os.makedirs(pruner.image_path, exist_ok=True)
     
-    # 執行 calibration + reorder
-    pruner.calibrate_and_reorder(calibrate_samples=10)
-    
-    # 測試 perplexity
-    perplexity = pruner.test_perplexity(num_samples=10)
+    # total_params = pruner.calculate_parameters()
+    # print(f"Total parameters before pruning: {total_params:,}")
+    # calibrate and reorder the model
+    pruner.calibrate_and_reorder(calibrate_samples=100)
+    perplexity = pruner.test_perplexity(num_samples=0)
     print("Perplexity before pruning:", perplexity)
     
-    pruner.prune(save_path=save_path, prune_ratio=0.05)
-    perplexity = pruner.test_perplexity(num_samples=10)
-    
-    print("Perplexity after pruning:", perplexity) 
-    
-    total_params = pruner.calculate_parameters()
-    print(f"Total parameters after pruning: {total_params:,}")
-
-    hf_path = "Tony027/Llama-3.2-3B-Instruct-pruned"
-
-    api = HfApi()
-    try:
-        api.repo_info(repo_id=hf_path, repo_type="model")
-        print(f"Repository '{hf_path}' already exists. Using the existing repo.")
-    except HfHubHTTPError as e:
-        if e.response.status_code == 404:
-            api.create_repo(repo_id=hf_path, repo_type="model")
-            print(f"Repository '{hf_path}' did not exist. Created a new repo.")
-        else:
-            raise RuntimeError(f"Error accessing Hugging Face Hub: {e}")
-
-    api.upload_folder(
-        folder_path=save_path,
-        repo_id=hf_path,
-        repo_type="model",
-    )
+    pruner.prune(prune_ratio=0.05)
+    perplexity = pruner.test_perplexity(num_samples=0)
+    print("Perplexity after pruning:", perplexity)
+     
+    # total_params = pruner.calculate_parameters()
+    # print(f"Total parameters after pruning: {total_params:,}")
